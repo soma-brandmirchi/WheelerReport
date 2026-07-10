@@ -1,22 +1,24 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { WheelerCampaignsDataOut } from "@/lib/types";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/api";
+import { WheelerPageviewsStrategyOut } from "@/lib/types";
+import { formatCurrency, formatNumber } from "@/lib/api";
 import { TableSort } from "@/lib/sort";
 import SortableTh from "./SortableTh";
 
 interface Props {
-  rows: WheelerCampaignsDataOut[];
+  rows: WheelerPageviewsStrategyOut[];
   total: number;
   limit: number;
   offset: number;
   sort: TableSort;
   onSort: (column: string) => void;
   onPageChange: (nextOffset: number) => void;
+  onRowClick?: (row: WheelerPageviewsStrategyOut) => void;
+  selectedId?: number | null;
 }
 
-export default function DeliveryTable({
+export default function PageviewsStrategyTable({
   rows,
   total,
   limit,
@@ -24,6 +26,8 @@ export default function DeliveryTable({
   sort,
   onSort,
   onPageChange,
+  onRowClick,
+  selectedId,
 }: Props) {
   const page = Math.floor(offset / limit) + 1;
   const pageCount = Math.max(1, Math.ceil(total / limit));
@@ -31,7 +35,12 @@ export default function DeliveryTable({
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <h3 className="font-display text-lg font-semibold text-ink">Delivery detail</h3>
+        <div>
+          <h3 className="font-display text-lg font-semibold text-ink">Pageviews strategy</h3>
+          {onRowClick && (
+            <p className="mt-0.5 text-xs text-slate-line">Click a row to open strategy detail</p>
+          )}
+        </div>
         <span className="eyebrow ticker">
           {total === 0 ? "0 rows" : `${offset + 1}–${Math.min(offset + limit, total)} of ${total}`}
         </span>
@@ -41,38 +50,54 @@ export default function DeliveryTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-y border-ink-600/10 text-left">
-              <SortableTh label="Date" column="campaign_date" sort={sort} onSort={onSort} />
-              <SortableTh label="Campaign" column="campaign_id" sort={sort} onSort={onSort} />
-              <SortableTh label="App" column="app_name" sort={sort} onSort={onSort} />
-              <SortableTh label="City" column="city" sort={sort} onSort={onSort} />
-              <SortableTh label="DMA" column="dma" sort={sort} onSort={onSort} />
-              <SortableTh label="Creative" column="creative" sort={sort} onSort={onSort} />
+              <SortableTh label="Campaign ID" column="campaign_id" sort={sort} onSort={onSort} />
+              <SortableTh label="Campaign" column="campaign" sort={sort} onSort={onSort} />
+              <SortableTh label="Strategy" column="strategy" sort={sort} onSort={onSort} />
               <SortableTh label="Impr." column="impressions" sort={sort} onSort={onSort} align="right" />
+              <SortableTh label="Complete views" column="complete_views" sort={sort} onSort={onSort} align="right" />
+              <SortableTh label="Household" column="household" sort={sort} onSort={onSort} align="right" />
+              <SortableTh label="Session" column="session" sort={sort} onSort={onSort} align="right" />
+              <SortableTh label="Page views" column="page_view" sort={sort} onSort={onSort} align="right" />
               <SortableTh label="Spend" column="cost_with_markup" sort={sort} onSort={onSort} align="right" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-slate-line">
-                  No delivery rows match these filters.
+                <td colSpan={9} className="px-5 py-8 text-center text-slate-line">
+                  No pageviews strategy rows match these filters.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id} className="border-b border-ink-600/5 hover:bg-ink-600/[0.03]">
-                  <Td className="ticker">{formatDate(r.campaign_date)}</Td>
+                <tr
+                  key={r.id}
+                  className={`border-b border-ink-600/5 ${
+                    onRowClick ? "cursor-pointer hover:bg-teal/[0.06]" : "hover:bg-ink-600/[0.03]"
+                  } ${selectedId === r.id ? "bg-signal/10" : ""}`}
+                  onClick={() => onRowClick?.(r)}
+                >
                   <Td className="ticker text-ink">{r.campaign_id}</Td>
-                  <Td>{r.app_name ?? "—"}</Td>
-                  <Td>{r.city ?? "—"}</Td>
-                  <Td className="max-w-[160px] truncate" title={r.dma ?? undefined}>
-                    {r.dma ?? "—"}
+                  <Td className="max-w-[200px] truncate" title={r.campaign}>
+                    {r.campaign}
                   </Td>
-                  <Td className="max-w-[180px] truncate" title={r.creative ?? undefined}>
-                    {r.creative ?? "—"}
+                  <Td className="max-w-[180px] truncate" title={r.strategy ?? undefined}>
+                    {r.strategy ?? "—"}
                   </Td>
                   <Td align="right" className="ticker">
                     {formatNumber(r.impressions)}
+                  </Td>
+                  <Td align="right" className="ticker">
+                    {formatNumber(r.complete_views)}
+                  </Td>
+                  <Td align="right" className="ticker">
+                    {formatNumber(r.household)}
+                  </Td>
+                  <Td align="right" className="ticker">
+                    {formatNumber(r.session)}
+                  </Td>
+                  <Td align="right" className="ticker">
+                    {formatNumber(r.page_view)}
                   </Td>
                   <Td align="right" className="ticker font-medium text-ink">
                     {formatCurrency(r.cost_with_markup)}

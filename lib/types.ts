@@ -55,6 +55,31 @@ export interface WheelerCampaignsDataIdsOut {
   total: number;
 }
 
+export interface WheelerPageviewsStrategyOut {
+  id: number;
+  campaign_id: string;
+  campaign: string;
+  strategy: string | null;
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}
+
+export interface WheelerPageviewsStrategyListOut {
+  items: WheelerPageviewsStrategyOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WheelerPageviewsStrategyIdsOut {
+  campaign_ids: string[];
+  total: number;
+}
+
 /** Query params for GET /api/wheeler-budget (OpenAPI). */
 export interface WheelerBudgetQuery {
   campaign_ids?: string;
@@ -119,6 +144,31 @@ export interface WheelerCampaignsDataIdsQuery {
   limit?: number;
 }
 
+/** Query params for GET /api/wheeler-pageviews-strategy (OpenAPI). */
+export interface WheelerPageviewsStrategyQuery {
+  campaign_ids?: string;
+  campaign_id_prefix?: string;
+  campaign_id_contains?: string;
+  campaign?: string;
+  strategy?: string;
+  start_from_date?: string;
+  end_to_date?: string;
+  start_month?: string | number;
+  start_year?: string | number;
+  end_month?: string | number;
+  end_year?: string | number;
+  impressions_min?: string | number;
+  limit?: number;
+  offset?: number;
+  order?: string;
+}
+
+/** Query params for GET /api/wheeler-pageviews-strategy/campaign-ids. */
+export interface WheelerPageviewsStrategyIdsQuery {
+  prefix?: string;
+  limit?: number;
+}
+
 export const BUDGET_QUERY_KEYS = [
   "campaign_ids",
   "campaign_id_prefix",
@@ -161,6 +211,24 @@ export const CAMPAIGNS_DATA_QUERY_KEYS = [
   "dma",
   "device_type",
   "creative",
+  "impressions_min",
+  "limit",
+  "offset",
+  "order",
+] as const;
+
+export const PAGEVIEWS_STRATEGY_QUERY_KEYS = [
+  "campaign_ids",
+  "campaign_id_prefix",
+  "campaign_id_contains",
+  "campaign",
+  "strategy",
+  "start_from_date",
+  "end_to_date",
+  "start_month",
+  "start_year",
+  "end_month",
+  "end_year",
   "impressions_min",
   "limit",
   "offset",

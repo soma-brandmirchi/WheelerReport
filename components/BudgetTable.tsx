@@ -3,12 +3,16 @@
 import type { ReactNode } from "react";
 import { WheelerBudgetOut } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/api";
+import { TableSort } from "@/lib/sort";
+import SortableTh from "./SortableTh";
 
 interface Props {
   rows: WheelerBudgetOut[];
   total: number;
   limit: number;
   offset: number;
+  sort: TableSort;
+  onSort: (column: string) => void;
   onPageChange: (nextOffset: number) => void;
   onRowClick?: (row: WheelerBudgetOut) => void;
   selectedId?: number | null;
@@ -19,6 +23,8 @@ export default function BudgetTable({
   total,
   limit,
   offset,
+  sort,
+  onSort,
   onPageChange,
   onRowClick,
   selectedId,
@@ -44,13 +50,13 @@ export default function BudgetTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-y border-ink-600/10 text-left">
-              <Th>Campaign ID</Th>
-              <Th>Campaign</Th>
-              <Th>Client</Th>
-              <Th>Type</Th>
-              <Th>Start</Th>
-              <Th>End</Th>
-              <Th align="right">Gross budget</Th>
+              <SortableTh label="Campaign ID" column="campaign_id" sort={sort} onSort={onSort} />
+              <SortableTh label="Campaign" column="campaign" sort={sort} onSort={onSort} />
+              <SortableTh label="Client" column="client_name" sort={sort} onSort={onSort} />
+              <SortableTh label="Type" column="campaign_type" sort={sort} onSort={onSort} />
+              <SortableTh label="Start" column="start_date" sort={sort} onSort={onSort} />
+              <SortableTh label="End" column="end_date" sort={sort} onSort={onSort} />
+              <SortableTh label="Gross budget" column="gross_budget" sort={sort} onSort={onSort} align="right" />
             </tr>
           </thead>
           <tbody>
@@ -105,14 +111,6 @@ export default function BudgetTable({
         </button>
       </div>
     </div>
-  );
-}
-
-function Th({ children, align = "left" }: { children: ReactNode; align?: "left" | "right" }) {
-  return (
-    <th className={`px-5 py-2.5 eyebrow font-normal ${align === "right" ? "text-right" : "text-left"}`}>
-      {children}
-    </th>
   );
 }
 

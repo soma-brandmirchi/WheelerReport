@@ -9,6 +9,11 @@ import {
   WheelerCampaignsDataListOut,
   WheelerCampaignsDataOut,
   WheelerCampaignsDataQuery,
+  WheelerPageviewsStrategyIdsOut,
+  WheelerPageviewsStrategyIdsQuery,
+  WheelerPageviewsStrategyListOut,
+  WheelerPageviewsStrategyOut,
+  WheelerPageviewsStrategyQuery,
 } from "./types";
 
 /** Upstream page size for list endpoints (budget max is 500). */
@@ -102,6 +107,46 @@ export async function fetchReportDelivery(
     limit: PAGE_LIMIT,
     offset: 0,
     order: query.order ?? "-campaign_date",
+  });
+  return {
+    items: page.items,
+    total: page.total,
+    truncated: page.total > page.items.length,
+  };
+}
+
+export async function fetchPageviewsStrategy(
+  query: WheelerPageviewsStrategyQuery
+): Promise<WheelerPageviewsStrategyListOut> {
+  const res = await fetch(`/api/wheeler-pageviews-strategy${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews strategy data"));
+  return res.json();
+}
+
+export async function fetchPageviewsStrategyCampaignIds(
+  query: WheelerPageviewsStrategyIdsQuery = {}
+): Promise<WheelerPageviewsStrategyIdsOut> {
+  const res = await fetch(
+    `/api/wheeler-pageviews-strategy/campaign-ids${toQueryString({ limit: PAGE_LIMIT, ...query })}`
+  );
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews campaign ids"));
+  return res.json();
+}
+
+export async function fetchPageviewsStrategyById(id: number): Promise<WheelerPageviewsStrategyOut> {
+  const res = await fetch(`/api/wheeler-pageviews-strategy/${id}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews strategy detail"));
+  return res.json();
+}
+
+export async function fetchReportPageviewsStrategy(
+  query: Omit<WheelerPageviewsStrategyQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsStrategyOut[]; total: number; truncated: boolean }> {
+  const page = await fetchPageviewsStrategy({
+    ...query,
+    limit: PAGE_LIMIT,
+    offset: 0,
+    order: query.order ?? "-impressions",
   });
   return {
     items: page.items,
