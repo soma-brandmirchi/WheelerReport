@@ -7,11 +7,7 @@ import KpiCard from "@/components/KpiCard";
 import BudgetByCampaignChart from "@/components/BudgetByCampaignChart";
 import DeliveryTrendChart from "@/components/DeliveryTrendChart";
 import DeliveryByDmaChart from "@/components/DeliveryByDmaChart";
-import BudgetTable from "@/components/BudgetTable";
-import DeliveryTable from "@/components/DeliveryTable";
-import PageviewsStrategyTable from "@/components/PageviewsStrategyTable";
-import CampaignDetailDrawer from "@/components/CampaignDetailDrawer";
-import PageviewsStrategyDetailDrawer from "@/components/PageviewsStrategyDetailDrawer";
+import CampaignsReportTable from "@/components/CampaignsReportTable";
 import PageLoader from "@/components/PageLoader";
 import {
   fetchBudgetCampaignIds,
@@ -22,9 +18,11 @@ import {
   formatNumber,
   PAGE_LIMIT,
 } from "@/lib/api";
+import { buildCampaignReportRows, sortCampaignRows } from "@/lib/campaignMetrics";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   DEFAULT_BUDGET_SORT,
+  DEFAULT_CAMPAIGNS_SORT,
   DEFAULT_DELIVERY_SORT,
   DEFAULT_PAGEVIEWS_SORT,
   TableSort,
@@ -42,12 +40,10 @@ export default function Page() {
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
   const [allBudgetRows, setAllBudgetRows] = useState<WheelerBudgetOut[]>([]);
   const [budgetTotal, setBudgetTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const [deliveryOffset, setDeliveryOffset] = useState(0);
+  const [campaignsOffset, setCampaignsOffset] = useState(0);
   const [deliveryRows, setDeliveryRows] = useState<WheelerCampaignsDataOut[]>([]);
   const [deliveryTotal, setDeliveryTotal] = useState(0);
   const [deliveryTruncated, setDeliveryTruncated] = useState(false);
-  const [pageviewsOffset, setPageviewsOffset] = useState(0);
   const [pageviewsRows, setPageviewsRows] = useState<WheelerPageviewsStrategyOut[]>([]);
   const [pageviewsTotal, setPageviewsTotal] = useState(0);
   const [pageviewsTruncated, setPageviewsTruncated] = useState(false);
@@ -55,13 +51,11 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<number | null>(null);
-  const [selectedPageviewsId, setSelectedPageviewsId] = useState<number | null>(null);
-  const [budgetSort, setBudgetSort] = useState<TableSort>(DEFAULT_BUDGET_SORT);
-  const [deliverySort, setDeliverySort] = useState<TableSort>(DEFAULT_DELIVERY_SORT);
-  const [pageviewsSort, setPageviewsSort] = useState<TableSort>(DEFAULT_PAGEVIEWS_SORT);
+  const [budgetSort] = useState<TableSort>(DEFAULT_BUDGET_SORT);
+  const [deliverySort] = useState<TableSort>(DEFAULT_DELIVERY_SORT);
+  const [pageviewsSort] = useState<TableSort>(DEFAULT_PAGEVIEWS_SORT);
+  const [campaignsSort, setCampaignsSort] = useState<TableSort>(DEFAULT_CAMPAIGNS_SORT);
 
-  // Campaign dropdown — only when prefix/client settle (debounced).
   useEffect(() => {
     let cancelled = false;
     fetchBudgetCampaignIds({
@@ -81,9 +75,7 @@ export default function Page() {
   }, [appliedFilters.campaignIdPrefix, appliedFilters.clientName]);
 
   useEffect(() => {
-    setOffset(0);
-    setDeliveryOffset(0);
-    setPageviewsOffset(0);
+    setCampaignsOffset(0);
   }, [appliedFilters]);
 
   useEffect(() => {
@@ -151,34 +143,24 @@ export default function Page() {
     };
   }, [appliedFilters, budgetSort, deliverySort, pageviewsSort]);
 
-  const handleBudgetSort = (column: string) => {
-    setBudgetSort((s) => toggleSort(s, column));
-    setOffset(0);
+  const handleCampaignsSort = (column: string) => {
+    setCampaignsSort((s) => toggleSort(s, column));
+    setCampaignsOffset(0);
   };
 
-  const handleDeliverySort = (column: string) => {
-    setDeliverySort((s) => toggleSort(s, column));
-    setDeliveryOffset(0);
-  };
-
-  const handlePageviewsSort = (column: string) => {
-    setPageviewsSort((s) => toggleSort(s, column));
-    setPageviewsOffset(0);
-  };
-
-  const pageRows = useMemo(
-    () => allBudgetRows.slice(offset, offset + TABLE_PAGE_SIZE),
-    [allBudgetRows, offset]
+  const allCampaignRows = useMemo(
+    () =>
+      sortCampaignRows(
+        buildCampaignReportRows(pageviewsRows, allBudgetRows, deliveryRows),
+        campaignsSort.column,
+        campaignsSort.direction
+      ),
+    [pageviewsRows, allBudgetRows, deliveryRows, campaignsSort]
   );
 
-  const deliveryPageRows = useMemo(
-    () => deliveryRows.slice(deliveryOffset, deliveryOffset + TABLE_PAGE_SIZE),
-    [deliveryRows, deliveryOffset]
-  );
-
-  const pageviewsPageRows = useMemo(
-    () => pageviewsRows.slice(pageviewsOffset, pageviewsOffset + TABLE_PAGE_SIZE),
-    [pageviewsRows, pageviewsOffset]
+  const campaignPageRows = useMemo(
+    () => allCampaignRows.slice(campaignsOffset, campaignsOffset + TABLE_PAGE_SIZE),
+    [allCampaignRows, campaignsOffset]
   );
 
   const kpis = useMemo(() => {
@@ -263,70 +245,30 @@ export default function Page() {
             </div>
 
             <div className={loading ? "opacity-40 pointer-events-none transition-opacity" : ""}>
-              <BudgetTable
-                rows={pageRows}
-                total={Math.min(budgetTotal, allBudgetRows.length)}
+              <CampaignsReportTable
+                rows={campaignPageRows}
+                total={allCampaignRows.length}
                 limit={TABLE_PAGE_SIZE}
-                offset={offset}
-                sort={budgetSort}
-                onSort={handleBudgetSort}
-                onPageChange={setOffset}
-                onRowClick={(row) => setSelectedBudgetId(row.id)}
-                selectedId={selectedBudgetId}
-              />
-            </div>
-
-            <div className={loading ? "opacity-40 pointer-events-none transition-opacity" : ""}>
-              <DeliveryTable
-                rows={deliveryPageRows}
-                total={deliveryRows.length}
-                limit={TABLE_PAGE_SIZE}
-                offset={deliveryOffset}
-                sort={deliverySort}
-                onSort={handleDeliverySort}
-                onPageChange={setDeliveryOffset}
-              />
-            </div>
-
-            <div className={loading ? "opacity-40 pointer-events-none transition-opacity" : ""}>
-              <PageviewsStrategyTable
-                rows={pageviewsPageRows}
-                total={pageviewsRows.length}
-                limit={TABLE_PAGE_SIZE}
-                offset={pageviewsOffset}
-                sort={pageviewsSort}
-                onSort={handlePageviewsSort}
-                onPageChange={setPageviewsOffset}
-                onRowClick={(row) => setSelectedPageviewsId(row.id)}
-                selectedId={selectedPageviewsId}
+                offset={campaignsOffset}
+                sort={campaignsSort}
+                onSort={handleCampaignsSort}
+                onPageChange={setCampaignsOffset}
+                dateFrom={appliedFilters.startFromDate}
+                dateTo={appliedFilters.endToDate}
               />
             </div>
 
             <p className="text-xs text-slate-line pb-6">
-              Loads one budget, delivery, and pageviews strategy page ({PAGE_LIMIT} rows) in parallel. Delivery has{" "}
-              {formatNumber(deliveryTotal)} matching rows upstream — charts/KPIs use the latest{" "}
-              {formatNumber(deliveryRows.length)}. Pageviews strategy has {formatNumber(pageviewsTotal)} matching rows
+              Loads budget, delivery, and pageviews strategy data ({PAGE_LIMIT} rows each) in parallel.
+              Campaigns Report aggregates pageviews strategy by campaign id
               {pageviewsTruncated
-                ? ` — table uses the latest ${formatNumber(pageviewsRows.length)}`
+                ? ` — using the latest ${formatNumber(pageviewsRows.length)} of ${formatNumber(pageviewsTotal)} rows`
                 : ""}
-              . Narrow with campaign, strategy, or date filters for a tighter sample. Click a budget row for{" "}
-              <code className="ticker">GET /api/wheeler-budget/&#123;id&#125;</code> or a pageviews row for{" "}
-              <code className="ticker">GET /api/wheeler-pageviews-strategy/&#123;id&#125;</code>.
+              . Click a campaign to open its detail report with tabbed breakdowns.
             </p>
           </div>
         )}
       </div>
-
-      <CampaignDetailDrawer
-        budgetId={selectedBudgetId}
-        deliveryRows={deliveryRows}
-        onClose={() => setSelectedBudgetId(null)}
-      />
-
-      <PageviewsStrategyDetailDrawer
-        rowId={selectedPageviewsId}
-        onClose={() => setSelectedPageviewsId(null)}
-      />
     </main>
   );
 }

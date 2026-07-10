@@ -25,4 +25,28 @@
   .ticker {
     @apply font-mono tabular-nums;
   }
+  .table-row-hover {
+    @apply hover:bg-[#eef6f5];
+  }
+  .table-sticky-col {
+    @apply sticky bg-white;
+  }
+  .table-sticky-col-hover {
+    @apply bg-white group-hover:bg-[#eef6f5];
+  }
+  .table-sticky-col-1 {
+    @apply table-sticky-col table-sticky-col-hover left-0 z-[21] min-w-[130px];
+  }
+  .table-sticky-col-2 {
+    @apply table-sticky-col table-sticky-col-hover left-[130px] z-[22] min-w-[240px] border-r border-ink-600/10 shadow-[4px_0_8px_-4px_rgba(15,27,26,0.12)];
+  }
+  .table-sticky-head-1 {
+    @apply table-sticky-col left-0 z-[30] min-w-[130px];
+  }
+  .table-sticky-head-2 {
+    @apply table-sticky-col left-[130px] z-[30] min-w-[240px] border-r border-ink-600/10 shadow-[4px_0_8px_-4px_rgba(15,27,26,0.12)];
+  }
+  .table-cell-hover {
+    @apply group-hover:bg-[#eef6f5];
+  }
 }
