@@ -14,6 +14,9 @@ import {
   WheelerPageviewsStrategyListOut,
   WheelerPageviewsStrategyOut,
   WheelerPageviewsStrategyQuery,
+  WheelerPageviewsAppsListOut,
+  WheelerPageviewsAppsOut,
+  WheelerPageviewsAppsQuery,
 } from "./types";
 
 /** Upstream page size for list endpoints (budget max is 500). */
@@ -193,6 +196,40 @@ export async function fetchReportPageviewsStrategy(
     total: page.total,
     truncated: page.total > page.items.length,
   };
+}
+
+export async function fetchPageviewsApps(
+  query: WheelerPageviewsAppsQuery
+): Promise<WheelerPageviewsAppsListOut> {
+  const res = await fetch(`/api/wheeler-pageviews-apps${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews apps data"));
+  return res.json();
+}
+
+export async function fetchReportPageviewsApps(
+  query: Omit<WheelerPageviewsAppsQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsAppsOut[]; total: number; truncated: boolean }> {
+  const page = await fetchPageviewsApps({
+    ...query,
+    limit: PAGE_LIMIT,
+    offset: 0,
+    order: query.order ?? "-impressions",
+  });
+  return {
+    items: page.items,
+    total: page.total,
+    truncated: page.total > page.items.length,
+  };
+}
+
+export async function fetchReportPageviewsAppsSafe(
+  query: Omit<WheelerPageviewsAppsQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsAppsOut[]; total: number; truncated: boolean }> {
+  try {
+    return await fetchReportPageviewsApps(query);
+  } catch {
+    return { items: [], total: 0, truncated: false };
+  }
 }
 
 // --- formatting helpers ---

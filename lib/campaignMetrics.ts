@@ -2,6 +2,7 @@ import {
   WheelerBudgetOut,
   WheelerCampaignsDataOut,
   WheelerPageviewsStrategyOut,
+  WheelerPageviewsAppsOut,
 } from "./types";
 
 export interface CampaignReportRow {
@@ -328,6 +329,35 @@ export function aggregateDeliveryByScreens(rows: WheelerCampaignsDataOut[]): Tab
 
 export function aggregateDeliveryByInventory(rows: WheelerCampaignsDataOut[]): TabMetricRow[] {
   return groupDeliveryRows(rows, (r) => r.app_name?.trim() || "Unknown inventory");
+}
+
+export function aggregatePageviewsByApp(rows: WheelerPageviewsAppsOut[]): TabMetricRow[] {
+  const groups = new Map<string, TabMetricRow>();
+
+  for (const row of rows) {
+    const name = row.app_name?.trim() || "Unknown inventory";
+    const existing = groups.get(name) ?? toTabRow(name, 0, 0, 0, 0);
+    existing.spend += parseNum(row.cost_with_markup);
+    existing.impressions += row.impressions ?? 0;
+    existing.complete_views += row.complete_views ?? 0;
+    existing.household = (existing.household ?? 0) + (row.household ?? 0);
+    if (existing.session === null) existing.session = 0;
+    if (existing.page_view === null) existing.page_view = 0;
+    existing.session += row.session ?? 0;
+    existing.page_view += row.page_view ?? 0;
+    Object.assign(
+      existing,
+      deriveMetrics(
+        existing.spend,
+        existing.impressions,
+        existing.complete_views,
+        existing.household
+      )
+    );
+    groups.set(name, existing);
+  }
+
+  return Array.from(groups.values()).sort((a, b) => b.spend - a.spend);
 }
 
 export function aggregateDeliveryByGeography(rows: WheelerCampaignsDataOut[]): TabMetricRow[] {

@@ -11,13 +11,14 @@ import {
   fetchReportBudget,
   fetchReportDelivery,
   fetchReportPageviewsStrategy,
+  fetchReportPageviewsAppsSafe,
 } from "@/lib/api";
 import {
   CampaignDetailTab,
   TabMetricRow,
   aggregateDeliveryByAds,
-  aggregateDeliveryByInventory,
   aggregateDeliveryByScreens,
+  aggregatePageviewsByApp,
   aggregatePageviewsByStrategy,
   buildPageviewsSummaryRow,
   enrichTabRowsWithCampaignDates,
@@ -29,6 +30,7 @@ import {
   WheelerBudgetOut,
   WheelerCampaignsDataOut,
   WheelerPageviewsStrategyOut,
+  WheelerPageviewsAppsOut,
 } from "@/lib/types";
 
 function sortTabRows(rows: TabMetricRow[], sort: TableSort): TabMetricRow[] {
@@ -55,6 +57,7 @@ export default function CampaignDetailPage() {
 
   const [budgetRows, setBudgetRows] = useState<WheelerBudgetOut[]>([]);
   const [pageviewsRows, setPageviewsRows] = useState<WheelerPageviewsStrategyOut[]>([]);
+  const [pageviewsAppsRows, setPageviewsAppsRows] = useState<WheelerPageviewsAppsOut[]>([]);
   const [deliveryRows, setDeliveryRows] = useState<WheelerCampaignsDataOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +105,10 @@ export default function CampaignDetailPage() {
         if (!cancelled) setLoading(false);
       });
 
+    fetchReportPageviewsAppsSafe(query).then((pageviewsApps) => {
+      if (!cancelled) setPageviewsAppsRows(pageviewsApps.items);
+    });
+
     return () => {
       cancelled = true;
     };
@@ -122,13 +129,13 @@ export default function CampaignDetailPage() {
       case "screens":
         return aggregateDeliveryByScreens(deliveryRows);
       case "inventory":
-        return aggregateDeliveryByInventory(deliveryRows);
+        return aggregatePageviewsByApp(pageviewsAppsRows);
       case "matched-user-ips":
         return [];
       default:
         return [];
     }
-  }, [activeTab, pageviewsRows, deliveryRows]);
+  }, [activeTab, pageviewsRows, pageviewsAppsRows, deliveryRows]);
 
   const enrichedTabRows = useMemo(
     () => enrichTabRowsWithCampaignDates(rawTabRows, budget),

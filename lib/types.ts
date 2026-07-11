@@ -80,6 +80,26 @@ export interface WheelerPageviewsStrategyIdsOut {
   total: number;
 }
 
+export interface WheelerPageviewsAppsOut {
+  id: number;
+  campaign_id: string;
+  campaign: string;
+  app_name: string | null;
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}
+
+export interface WheelerPageviewsAppsListOut {
+  items: WheelerPageviewsAppsOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Query params for GET /api/wheeler-budget (OpenAPI). */
 export interface WheelerBudgetQuery {
   campaign_ids?: string;
@@ -169,6 +189,25 @@ export interface WheelerPageviewsStrategyIdsQuery {
   limit?: number;
 }
 
+/** Query params for GET /api/wheeler_pageviews_apps (OpenAPI). */
+export interface WheelerPageviewsAppsQuery {
+  campaign_ids?: string;
+  campaign_id_prefix?: string;
+  campaign_id_contains?: string;
+  campaign?: string;
+  app_name?: string;
+  start_from_date?: string;
+  end_to_date?: string;
+  start_month?: string | number;
+  start_year?: string | number;
+  end_month?: string | number;
+  end_year?: string | number;
+  impressions_min?: string | number;
+  limit?: number;
+  offset?: number;
+  order?: string;
+}
+
 export const BUDGET_QUERY_KEYS = [
   "campaign_ids",
   "campaign_id_prefix",
@@ -223,6 +262,24 @@ export const PAGEVIEWS_STRATEGY_QUERY_KEYS = [
   "campaign_id_contains",
   "campaign",
   "strategy",
+  "start_from_date",
+  "end_to_date",
+  "start_month",
+  "start_year",
+  "end_month",
+  "end_year",
+  "impressions_min",
+  "limit",
+  "offset",
+  "order",
+] as const;
+
+export const PAGEVIEWS_APPS_QUERY_KEYS = [
+  "campaign_ids",
+  "campaign_id_prefix",
+  "campaign_id_contains",
+  "campaign",
+  "app_name",
   "start_from_date",
   "end_to_date",
   "start_month",
