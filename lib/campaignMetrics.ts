@@ -3,6 +3,9 @@ import {
   WheelerCampaignsDataOut,
   WheelerPageviewsStrategyOut,
   WheelerPageviewsAppsOut,
+  WheelerPageviewsDayOut,
+  WheelerPageviewsZipOut,
+  WheelerPageviewsCityOut,
 } from "./types";
 
 export interface CampaignReportRow {
@@ -55,18 +58,30 @@ export interface TabMetricRow {
 
 export type CampaignDetailTab =
   | "strategies"
+  | "time"
   | "ads"
   | "screens"
   | "inventory"
+  | "geography"
   | "matched-user-ips";
+
+export type GeographyView = "zip" | "city";
 
 export const CAMPAIGN_DETAIL_TABS: { id: CampaignDetailTab; label: string }[] = [
   { id: "strategies", label: "Strategies" },
+  { id: "time", label: "Time" },
   { id: "ads", label: "Ads" },
   { id: "screens", label: "Screens" },
   { id: "inventory", label: "Inventory" },
+  { id: "geography", label: "Geography" },
   { id: "matched-user-ips", label: "Matched User IPs" },
 ];
+
+export const MUTED_CAMPAIGN_DETAIL_TABS: CampaignDetailTab[] = ["ads", "screens"];
+
+export const VISIBLE_CAMPAIGN_DETAIL_TABS = CAMPAIGN_DETAIL_TABS.filter(
+  (tab) => !MUTED_CAMPAIGN_DETAIL_TABS.includes(tab.id)
+);
 
 export const DEFAULT_CAMPAIGNS_SORT = { column: "complete_views", direction: "desc" as const };
 
@@ -360,6 +375,83 @@ export function aggregatePageviewsByApp(rows: WheelerPageviewsAppsOut[]): TabMet
   return Array.from(groups.values()).sort((a, b) => b.spend - a.spend);
 }
 
+export function aggregatePageviewsByDay(rows: WheelerPageviewsDayOut[]): TabMetricRow[] {
+  const groups = new Map<string, TabMetricRow>();
+
+  for (const row of rows) {
+    const name = row.day?.trim() || "Unknown date";
+    const existing = groups.get(name) ?? toTabRow(name, 0, 0, 0, 0);
+    existing.spend += parseNum(row.cost_with_markup);
+    existing.impressions += row.impressions ?? 0;
+    existing.complete_views += row.complete_views ?? 0;
+    existing.household = (existing.household ?? 0) + (row.household ?? 0);
+    if (existing.session === null) existing.session = 0;
+    if (existing.page_view === null) existing.page_view = 0;
+    existing.session += row.session ?? 0;
+    existing.page_view += row.page_view ?? 0;
+    Object.assign(
+      existing,
+      deriveMetrics(
+        existing.spend,
+        existing.impressions,
+        existing.complete_views,
+        existing.household
+      )
+    );
+    groups.set(name, existing);
+  }
+
+  return Array.from(groups.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function aggregatePageviewsByField<T extends {
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}>(
+  rows: T[],
+  getName: (row: T) => string
+): TabMetricRow[] {
+  const groups = new Map<string, TabMetricRow>();
+
+  for (const row of rows) {
+    const name = getName(row);
+    const existing = groups.get(name) ?? toTabRow(name, 0, 0, 0, 0);
+    existing.spend += parseNum(row.cost_with_markup);
+    existing.impressions += row.impressions ?? 0;
+    existing.complete_views += row.complete_views ?? 0;
+    existing.household = (existing.household ?? 0) + (row.household ?? 0);
+    if (existing.session === null) existing.session = 0;
+    if (existing.page_view === null) existing.page_view = 0;
+    existing.session += row.session ?? 0;
+    existing.page_view += row.page_view ?? 0;
+    Object.assign(
+      existing,
+      deriveMetrics(
+        existing.spend,
+        existing.impressions,
+        existing.complete_views,
+        existing.household
+      )
+    );
+    groups.set(name, existing);
+  }
+
+  return Array.from(groups.values()).sort((a, b) => b.spend - a.spend);
+}
+
+export function aggregatePageviewsByZip(rows: WheelerPageviewsZipOut[]): TabMetricRow[] {
+  const grouped = aggregatePageviewsByField(rows, (row) => row.zip_code?.trim() || "Unknown zip");
+  return grouped.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+}
+
+export function aggregatePageviewsByCity(rows: WheelerPageviewsCityOut[]): TabMetricRow[] {
+  return aggregatePageviewsByField(rows, (row) => row.city?.trim() || "Unknown city");
+}
+
 export function aggregateDeliveryByGeography(rows: WheelerCampaignsDataOut[]): TabMetricRow[] {
   return groupDeliveryRows(
     rows,
@@ -496,9 +588,13 @@ export function enrichSummaryWithPageviews(
 }
 
 export function parseCampaignDetailTab(value: string | null): CampaignDetailTab {
-  const valid = CAMPAIGN_DETAIL_TABS.map((t) => t.id);
+  const valid = VISIBLE_CAMPAIGN_DETAIL_TABS.map((t) => t.id);
   if (value && valid.includes(value as CampaignDetailTab)) {
     return value as CampaignDetailTab;
   }
   return "strategies";
+}
+
+export function parseGeographyView(value: string | null): GeographyView {
+  return value === "city" ? "city" : "zip";
 }

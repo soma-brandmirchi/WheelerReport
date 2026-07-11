@@ -19,6 +19,7 @@ interface Props {
   sort: TableSort;
   onSort: (column: string) => void;
   emptyMessage?: string;
+  nameColumnLabel?: string;
 }
 
 const METRIC_COLUMNS = [
@@ -41,8 +42,10 @@ export default function CampaignTabTable({
   sort,
   onSort,
   emptyMessage,
+  nameColumnLabel = "Name",
 }: Props) {
   const isStrategies = activeTab === "strategies";
+  const isGeography = activeTab === "geography";
   const colSpan = isStrategies ? 13 : 11;
 
   return (
@@ -51,7 +54,7 @@ export default function CampaignTabTable({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-y border-ink-600/10 text-left">
-              <SortableTh label="Name" column="name" sort={sort} onSort={onSort} />
+              <SortableTh label={nameColumnLabel} column="name" sort={sort} onSort={onSort} />
               {isStrategies && (
                 <SortableTh label="Start Date" column="start_date" sort={sort} onSort={onSort} />
               )}
@@ -71,7 +74,9 @@ export default function CampaignTabTable({
             </tr>
           </thead>
           <tbody>
-            {summary && <MetricRow row={summary} highlight isStrategies={isStrategies} />}
+            {summary && (
+              <MetricRow row={summary} highlight isStrategies={isStrategies} isGeography={isGeography} />
+            )}
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={colSpan} className="px-5 py-8 text-center text-slate-line">
@@ -80,7 +85,7 @@ export default function CampaignTabTable({
               </tr>
             ) : (
               rows.map((row) => (
-                <MetricRow key={row.name} row={row} isStrategies={isStrategies} />
+                <MetricRow key={row.name} row={row} isStrategies={isStrategies} isGeography={isGeography} />
               ))
             )}
           </tbody>
@@ -94,16 +99,18 @@ function MetricRow({
   row,
   highlight = false,
   isStrategies,
+  isGeography = false,
 }: {
   row: TabMetricRow;
   highlight?: boolean;
   isStrategies: boolean;
+  isGeography?: boolean;
 }) {
   return (
     <tr
       className={`border-b border-ink-600/5 ${highlight ? "bg-teal/[0.08] font-medium" : "hover:bg-ink-600/[0.03]"}`}
     >
-      <Td>{row.name}</Td>
+      <Td className={isGeography ? "font-semibold" : undefined}>{row.name}</Td>
       {isStrategies && (
         <Td className="ticker whitespace-nowrap">{formatDate(row.start_date)}</Td>
       )}

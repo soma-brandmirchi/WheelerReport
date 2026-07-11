@@ -17,6 +17,15 @@ import {
   WheelerPageviewsAppsListOut,
   WheelerPageviewsAppsOut,
   WheelerPageviewsAppsQuery,
+  WheelerPageviewsDayListOut,
+  WheelerPageviewsDayOut,
+  WheelerPageviewsDayQuery,
+  WheelerPageviewsZipListOut,
+  WheelerPageviewsZipOut,
+  WheelerPageviewsZipQuery,
+  WheelerPageviewsCityListOut,
+  WheelerPageviewsCityOut,
+  WheelerPageviewsCityQuery,
 } from "./types";
 
 /** Upstream page size for list endpoints (budget max is 500). */
@@ -227,6 +236,108 @@ export async function fetchReportPageviewsAppsSafe(
 ): Promise<{ items: WheelerPageviewsAppsOut[]; total: number; truncated: boolean }> {
   try {
     return await fetchReportPageviewsApps(query);
+  } catch {
+    return { items: [], total: 0, truncated: false };
+  }
+}
+
+export async function fetchPageviewsDay(
+  query: WheelerPageviewsDayQuery
+): Promise<WheelerPageviewsDayListOut> {
+  const res = await fetch(`/api/wheeler-pageviews-day${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews day data"));
+  return res.json();
+}
+
+export async function fetchReportPageviewsDay(
+  query: Omit<WheelerPageviewsDayQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsDayOut[]; total: number; truncated: boolean }> {
+  const page = await fetchPageviewsDay({
+    ...query,
+    limit: PAGE_LIMIT,
+    offset: 0,
+    order: query.order ?? "day",
+  });
+  return {
+    items: page.items,
+    total: page.total,
+    truncated: page.total > page.items.length,
+  };
+}
+
+export async function fetchReportPageviewsDaySafe(
+  query: Omit<WheelerPageviewsDayQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsDayOut[]; total: number; truncated: boolean }> {
+  try {
+    return await fetchReportPageviewsDay(query);
+  } catch {
+    return { items: [], total: 0, truncated: false };
+  }
+}
+
+export async function fetchPageviewsZip(
+  query: WheelerPageviewsZipQuery
+): Promise<WheelerPageviewsZipListOut> {
+  const res = await fetch(`/api/wheeler-pageviews-zip${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews zip data"));
+  return res.json();
+}
+
+export async function fetchReportPageviewsZip(
+  query: Omit<WheelerPageviewsZipQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsZipOut[]; total: number; truncated: boolean }> {
+  const page = await fetchPageviewsZip({
+    ...query,
+    limit: PAGE_LIMIT,
+    offset: 0,
+    order: query.order ?? "zip_code",
+  });
+  return {
+    items: page.items,
+    total: page.total,
+    truncated: page.total > page.items.length,
+  };
+}
+
+export async function fetchReportPageviewsZipSafe(
+  query: Omit<WheelerPageviewsZipQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsZipOut[]; total: number; truncated: boolean }> {
+  try {
+    return await fetchReportPageviewsZip(query);
+  } catch {
+    return { items: [], total: 0, truncated: false };
+  }
+}
+
+export async function fetchPageviewsCity(
+  query: WheelerPageviewsCityQuery
+): Promise<WheelerPageviewsCityListOut> {
+  const res = await fetch(`/api/wheeler-pageviews-city${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews city data"));
+  return res.json();
+}
+
+export async function fetchReportPageviewsCity(
+  query: Omit<WheelerPageviewsCityQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsCityOut[]; total: number; truncated: boolean }> {
+  const page = await fetchPageviewsCity({
+    ...query,
+    limit: PAGE_LIMIT,
+    offset: 0,
+    order: query.order ?? "-impressions",
+  });
+  return {
+    items: page.items,
+    total: page.total,
+    truncated: page.total > page.items.length,
+  };
+}
+
+export async function fetchReportPageviewsCitySafe(
+  query: Omit<WheelerPageviewsCityQuery, "limit" | "offset">
+): Promise<{ items: WheelerPageviewsCityOut[]; total: number; truncated: boolean }> {
+  try {
+    return await fetchReportPageviewsCity(query);
   } catch {
     return { items: [], total: 0, truncated: false };
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CAMPAIGN_DETAIL_TABS, CampaignDetailTab } from "@/lib/campaignMetrics";
+import { VISIBLE_CAMPAIGN_DETAIL_TABS, CampaignDetailTab } from "@/lib/campaignMetrics";
 
 interface Props {
   activeTab: CampaignDetailTab;
@@ -11,7 +11,7 @@ export default function CampaignDetailTabs({ activeTab, onTabChange }: Props) {
   return (
     <div className="border-b border-ink-600/10">
       <nav className="-mb-px flex flex-wrap gap-1" aria-label="Campaign detail tabs">
-        {CAMPAIGN_DETAIL_TABS.map((tab) => {
+        {VISIBLE_CAMPAIGN_DETAIL_TABS.map((tab) => {
           const active = tab.id === activeTab;
           return (
             <button

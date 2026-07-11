@@ -100,6 +100,66 @@ export interface WheelerPageviewsAppsListOut {
   offset: number;
 }
 
+export interface WheelerPageviewsDayOut {
+  id: number;
+  campaign_id: string;
+  campaign: string;
+  day: string | null;
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}
+
+export interface WheelerPageviewsDayListOut {
+  items: WheelerPageviewsDayOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WheelerPageviewsZipOut {
+  id: number;
+  campaign_id: string;
+  campaign: string;
+  zip_code: string | null;
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}
+
+export interface WheelerPageviewsZipListOut {
+  items: WheelerPageviewsZipOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface WheelerPageviewsCityOut {
+  id: number;
+  campaign_id: string;
+  campaign: string;
+  city: string | null;
+  cost_with_markup: string | null;
+  impressions: number | null;
+  complete_views: number | null;
+  household: number | null;
+  session: number | null;
+  page_view: number | null;
+}
+
+export interface WheelerPageviewsCityListOut {
+  items: WheelerPageviewsCityOut[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 /** Query params for GET /api/wheeler-budget (OpenAPI). */
 export interface WheelerBudgetQuery {
   campaign_ids?: string;
@@ -208,6 +268,63 @@ export interface WheelerPageviewsAppsQuery {
   order?: string;
 }
 
+/** Query params for GET /api/wheeler-pageviews-day (OpenAPI). */
+export interface WheelerPageviewsDayQuery {
+  campaign_ids?: string;
+  campaign_id_prefix?: string;
+  campaign_id_contains?: string;
+  campaign?: string;
+  campaign_date?: string;
+  start_from_date?: string;
+  end_to_date?: string;
+  start_month?: string | number;
+  start_year?: string | number;
+  end_month?: string | number;
+  end_year?: string | number;
+  impressions_min?: string | number;
+  limit?: number;
+  offset?: number;
+  order?: string;
+}
+
+/** Query params for GET /api/wheeler-pageviews-zip (OpenAPI). */
+export interface WheelerPageviewsZipQuery {
+  campaign_ids?: string;
+  campaign_id_prefix?: string;
+  campaign_id_contains?: string;
+  campaign?: string;
+  zip_code?: string;
+  start_from_date?: string;
+  end_to_date?: string;
+  start_month?: string | number;
+  start_year?: string | number;
+  end_month?: string | number;
+  end_year?: string | number;
+  impressions_min?: string | number;
+  limit?: number;
+  offset?: number;
+  order?: string;
+}
+
+/** Query params for GET /api/wheeler-pageviews-city (OpenAPI). */
+export interface WheelerPageviewsCityQuery {
+  campaign_ids?: string;
+  campaign_id_prefix?: string;
+  campaign_id_contains?: string;
+  campaign?: string;
+  city?: string;
+  start_from_date?: string;
+  end_to_date?: string;
+  start_month?: string | number;
+  start_year?: string | number;
+  end_month?: string | number;
+  end_year?: string | number;
+  impressions_min?: string | number;
+  limit?: number;
+  offset?: number;
+  order?: string;
+}
+
 export const BUDGET_QUERY_KEYS = [
   "campaign_ids",
   "campaign_id_prefix",
@@ -280,6 +397,60 @@ export const PAGEVIEWS_APPS_QUERY_KEYS = [
   "campaign_id_contains",
   "campaign",
   "app_name",
+  "start_from_date",
+  "end_to_date",
+  "start_month",
+  "start_year",
+  "end_month",
+  "end_year",
+  "impressions_min",
+  "limit",
+  "offset",
+  "order",
+] as const;
+
+export const PAGEVIEWS_DAY_QUERY_KEYS = [
+  "campaign_ids",
+  "campaign_id_prefix",
+  "campaign_id_contains",
+  "campaign",
+  "campaign_date",
+  "start_from_date",
+  "end_to_date",
+  "start_month",
+  "start_year",
+  "end_month",
+  "end_year",
+  "impressions_min",
+  "limit",
+  "offset",
+  "order",
+] as const;
+
+export const PAGEVIEWS_ZIP_QUERY_KEYS = [
+  "campaign_ids",
+  "campaign_id_prefix",
+  "campaign_id_contains",
+  "campaign",
+  "zip_code",
+  "start_from_date",
+  "end_to_date",
+  "start_month",
+  "start_year",
+  "end_month",
+  "end_year",
+  "impressions_min",
+  "limit",
+  "offset",
+  "order",
+] as const;
+
+export const PAGEVIEWS_CITY_QUERY_KEYS = [
+  "campaign_ids",
+  "campaign_id_prefix",
+  "campaign_id_contains",
+  "campaign",
+  "city",
   "start_from_date",
   "end_to_date",
   "start_month",

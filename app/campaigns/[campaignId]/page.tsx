@@ -6,31 +6,44 @@ import Header from "@/components/Header";
 import PageLoader from "@/components/PageLoader";
 import CampaignDetailHeader from "@/components/campaign-detail/CampaignDetailHeader";
 import CampaignDetailTabs from "@/components/campaign-detail/CampaignDetailTabs";
+import CampaignGeographySubTabs from "@/components/campaign-detail/CampaignGeographySubTabs";
 import CampaignTabTable from "@/components/campaign-detail/CampaignTabTable";
 import {
   fetchReportBudget,
   fetchReportDelivery,
   fetchReportPageviewsStrategy,
   fetchReportPageviewsAppsSafe,
+  fetchReportPageviewsDaySafe,
+  fetchReportPageviewsZipSafe,
+  fetchReportPageviewsCitySafe,
 } from "@/lib/api";
 import {
   CampaignDetailTab,
+  GeographyView,
   TabMetricRow,
   aggregateDeliveryByAds,
   aggregateDeliveryByScreens,
   aggregatePageviewsByApp,
+  aggregatePageviewsByDay,
+  aggregatePageviewsByZip,
+  aggregatePageviewsByCity,
   aggregatePageviewsByStrategy,
   buildPageviewsSummaryRow,
   enrichTabRowsWithCampaignDates,
   findBudgetForCampaign,
+  MUTED_CAMPAIGN_DETAIL_TABS,
   parseCampaignDetailTab,
+  parseGeographyView,
 } from "@/lib/campaignMetrics";
-import { DEFAULT_CAMPAIGNS_SORT, TableSort, toggleSort } from "@/lib/sort";
+import { defaultSortForCampaignDetailTab, TableSort, toggleSort } from "@/lib/sort";
 import {
   WheelerBudgetOut,
   WheelerCampaignsDataOut,
   WheelerPageviewsStrategyOut,
   WheelerPageviewsAppsOut,
+  WheelerPageviewsDayOut,
+  WheelerPageviewsZipOut,
+  WheelerPageviewsCityOut,
 } from "@/lib/types";
 
 function sortTabRows(rows: TabMetricRow[], sort: TableSort): TabMetricRow[] {
@@ -51,17 +64,28 @@ export default function CampaignDetailPage() {
   const searchParams = useSearchParams();
   const campaignId = decodeURIComponent(String(params.campaignId ?? ""));
 
-  const activeTab = parseCampaignDetailTab(searchParams.get("tab"));
+  const tabParam = searchParams.get("tab");
+  const activeTab = parseCampaignDetailTab(tabParam);
+  const geographyView = parseGeographyView(searchParams.get("geo"));
   const dateFrom = searchParams.get("from") ?? "";
   const dateTo = searchParams.get("to") ?? "";
 
   const [budgetRows, setBudgetRows] = useState<WheelerBudgetOut[]>([]);
   const [pageviewsRows, setPageviewsRows] = useState<WheelerPageviewsStrategyOut[]>([]);
   const [pageviewsAppsRows, setPageviewsAppsRows] = useState<WheelerPageviewsAppsOut[]>([]);
+  const [pageviewsDayRows, setPageviewsDayRows] = useState<WheelerPageviewsDayOut[]>([]);
+  const [pageviewsZipRows, setPageviewsZipRows] = useState<WheelerPageviewsZipOut[]>([]);
+  const [pageviewsCityRows, setPageviewsCityRows] = useState<WheelerPageviewsCityOut[]>([]);
   const [deliveryRows, setDeliveryRows] = useState<WheelerCampaignsDataOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tabSort, setTabSort] = useState<TableSort>(DEFAULT_CAMPAIGNS_SORT);
+  const [tabSort, setTabSort] = useState<TableSort>(() =>
+    defaultSortForCampaignDetailTab(activeTab, geographyView)
+  );
+
+  useEffect(() => {
+    setTabSort(defaultSortForCampaignDetailTab(activeTab, geographyView));
+  }, [activeTab, geographyView]);
 
   const updateSearchParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -75,6 +99,12 @@ export default function CampaignDetailPage() {
     },
     [campaignId, router, searchParams]
   );
+
+  useEffect(() => {
+    if (tabParam && MUTED_CAMPAIGN_DETAIL_TABS.includes(tabParam as CampaignDetailTab)) {
+      updateSearchParams({ tab: "strategies" });
+    }
+  }, [tabParam, updateSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,6 +139,18 @@ export default function CampaignDetailPage() {
       if (!cancelled) setPageviewsAppsRows(pageviewsApps.items);
     });
 
+    fetchReportPageviewsDaySafe(query).then((pageviewsDay) => {
+      if (!cancelled) setPageviewsDayRows(pageviewsDay.items);
+    });
+
+    fetchReportPageviewsZipSafe(query).then((pageviewsZip) => {
+      if (!cancelled) setPageviewsZipRows(pageviewsZip.items);
+    });
+
+    fetchReportPageviewsCitySafe(query).then((pageviewsCity) => {
+      if (!cancelled) setPageviewsCityRows(pageviewsCity.items);
+    });
+
     return () => {
       cancelled = true;
     };
@@ -124,18 +166,33 @@ export default function CampaignDetailPage() {
     switch (activeTab) {
       case "strategies":
         return aggregatePageviewsByStrategy(pageviewsRows);
+      case "time":
+        return aggregatePageviewsByDay(pageviewsDayRows);
       case "ads":
         return aggregateDeliveryByAds(deliveryRows);
       case "screens":
         return aggregateDeliveryByScreens(deliveryRows);
       case "inventory":
         return aggregatePageviewsByApp(pageviewsAppsRows);
+      case "geography":
+        return geographyView === "city"
+          ? aggregatePageviewsByCity(pageviewsCityRows)
+          : aggregatePageviewsByZip(pageviewsZipRows);
       case "matched-user-ips":
         return [];
       default:
         return [];
     }
-  }, [activeTab, pageviewsRows, pageviewsAppsRows, deliveryRows]);
+  }, [
+    activeTab,
+    geographyView,
+    pageviewsRows,
+    pageviewsAppsRows,
+    pageviewsDayRows,
+    pageviewsZipRows,
+    pageviewsCityRows,
+    deliveryRows,
+  ]);
 
   const enrichedTabRows = useMemo(
     () => enrichTabRowsWithCampaignDates(rawTabRows, budget),
@@ -148,7 +205,20 @@ export default function CampaignDetailPage() {
   );
 
   const summaryLabel =
-    activeTab === "ads" || activeTab === "inventory" ? "All" : "All strategies";
+    activeTab === "geography"
+      ? "All Locations"
+      : activeTab === "time"
+        ? "All times"
+        : activeTab === "ads" || activeTab === "inventory"
+          ? "All"
+          : "All strategies";
+
+  const nameColumnLabel =
+    activeTab === "geography"
+      ? geographyView === "city"
+        ? "City"
+        : "Zip Code"
+      : "Name";
 
   const summary = useMemo(
     () => buildPageviewsSummaryRow(pageviewsRows, budget, summaryLabel),
@@ -156,8 +226,15 @@ export default function CampaignDetailPage() {
   );
 
   const handleTabChange = (tab: CampaignDetailTab) => {
-    setTabSort(DEFAULT_CAMPAIGNS_SORT);
-    updateSearchParams({ tab });
+    if (tab === "geography") {
+      updateSearchParams({ tab, geo: searchParams.get("geo") ?? "zip" });
+    } else {
+      updateSearchParams({ tab, geo: null });
+    }
+  };
+
+  const handleGeographyViewChange = (view: GeographyView) => {
+    updateSearchParams({ tab: "geography", geo: view });
   };
 
   const handleClearDateFilter = () => {
@@ -187,6 +264,13 @@ export default function CampaignDetailPage() {
 
         <CampaignDetailTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
+        {activeTab === "geography" && (
+          <CampaignGeographySubTabs
+            activeView={geographyView}
+            onViewChange={handleGeographyViewChange}
+          />
+        )}
+
         <div className="relative min-h-[240px]">
           {loading && <PageLoader label="Loading campaign data…" />}
 
@@ -206,6 +290,7 @@ export default function CampaignDetailPage() {
                 sort={tabSort}
                 onSort={(column) => setTabSort((s) => toggleSort(s, column))}
                 emptyMessage="No data for this tab with the current filters."
+                nameColumnLabel={nameColumnLabel}
               />
             )
           )}
