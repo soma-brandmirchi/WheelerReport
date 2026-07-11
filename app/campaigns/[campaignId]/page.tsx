@@ -19,12 +19,10 @@ import {
   aggregateDeliveryByInventory,
   aggregateDeliveryByScreens,
   aggregatePageviewsByStrategy,
-  enrichSummaryWithPageviews,
-  enrichTabRow,
+  buildPageviewsSummaryRow,
   enrichTabRowsWithCampaignDates,
   findBudgetForCampaign,
   parseCampaignDetailTab,
-  summarizeTabRows,
 } from "@/lib/campaignMetrics";
 import { DEFAULT_CAMPAIGNS_SORT, TableSort, toggleSort } from "@/lib/sort";
 import {
@@ -142,12 +140,13 @@ export default function CampaignDetailPage() {
     [enrichedTabRows, tabSort]
   );
 
-  const summary = useMemo(() => {
-    if (enrichedTabRows.length === 0) return null;
-    const base = enrichTabRow(summarizeTabRows(enrichedTabRows), budget);
-    if (activeTab === "strategies") return base;
-    return enrichSummaryWithPageviews(base, pageviewsRows);
-  }, [enrichedTabRows, activeTab, pageviewsRows, budget]);
+  const summaryLabel =
+    activeTab === "ads" || activeTab === "inventory" ? "All" : "All strategies";
+
+  const summary = useMemo(
+    () => buildPageviewsSummaryRow(pageviewsRows, budget, summaryLabel),
+    [pageviewsRows, budget, summaryLabel]
+  );
 
   const handleTabChange = (tab: CampaignDetailTab) => {
     setTabSort(DEFAULT_CAMPAIGNS_SORT);
@@ -194,6 +193,7 @@ export default function CampaignDetailPage() {
           ) : (
             !loading && (
               <CampaignTabTable
+                activeTab={activeTab}
                 summary={summary}
                 rows={tabRows}
                 sort={tabSort}

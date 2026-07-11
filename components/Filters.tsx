@@ -52,13 +52,20 @@ interface FiltersProps {
   value: FilterState;
   onChange: (next: FilterState) => void;
   campaignIds: string[];
+  advertiserNames: string[];
   loading?: boolean;
 }
 
 const inputClass =
   "h-9 rounded-md border border-ink-600/15 bg-white px-2.5 text-sm text-ink focus:border-signal";
 
-export default function Filters({ value, onChange, campaignIds, loading }: FiltersProps) {
+export default function Filters({
+  value,
+  onChange,
+  campaignIds,
+  advertiserNames,
+  loading,
+}: FiltersProps) {
   const set = (patch: Partial<FilterState>) => onChange({ ...value, ...patch });
   const hasAdvanced =
     value.campaignIdPrefix ||
@@ -71,6 +78,7 @@ export default function Filters({ value, onChange, campaignIds, loading }: Filte
     value.deviceType;
 
   const campaignOptions = campaignIds.map((id) => ({ value: id, label: id }));
+  const advertiserOptions = advertiserNames.map((name) => ({ value: name, label: name }));
 
   return (
     <div className="card p-4 flex flex-col gap-4">
@@ -87,14 +95,15 @@ export default function Filters({ value, onChange, campaignIds, loading }: Filte
           />
         </Field>
 
-        <Field label="Client name contains" htmlFor="client">
-          <input
+        <Field label="Advertiser name" htmlFor="client">
+          <SearchableSelect
             id="client"
-            type="text"
-            placeholder="e.g. Zoomers"
-            className={`${inputClass} w-[180px]`}
+            className="min-w-[240px]"
             value={value.clientName}
-            onChange={(e) => set({ clientName: e.target.value })}
+            options={advertiserOptions}
+            onChange={(clientName) => set({ clientName })}
+            allLabel="All advertisers"
+            placeholder="Search advertiser…"
           />
         </Field>
 

@@ -115,6 +115,46 @@ export async function fetchReportDelivery(
   };
 }
 
+export function sumDeliveryRows(rows: WheelerCampaignsDataOut[]): {
+  totalImpressions: number;
+  totalSpend: number;
+} {
+  return rows.reduce(
+    (acc, row) => {
+      acc.totalImpressions += row.impressions ?? 0;
+      acc.totalSpend += row.cost_with_markup ?? 0;
+      return acc;
+    },
+    { totalImpressions: 0, totalSpend: 0 }
+  );
+}
+
+export function sumPageviewsRows(rows: WheelerPageviewsStrategyOut[]): {
+  totalImpressions: number;
+  totalSpend: number;
+} {
+  return rows.reduce(
+    (acc, row) => {
+      acc.totalImpressions += row.impressions ?? 0;
+      const spend =
+        typeof row.cost_with_markup === "string"
+          ? parseFloat(row.cost_with_markup)
+          : (row.cost_with_markup ?? 0);
+      acc.totalSpend += Number.isNaN(spend) ? 0 : spend;
+      return acc;
+    },
+    { totalImpressions: 0, totalSpend: 0 }
+  );
+}
+
+export async function fetchPageviewsTotals(
+  query: Omit<WheelerPageviewsStrategyQuery, "limit" | "offset">
+): Promise<{ totalImpressions: number; totalSpend: number; totalRows: number }> {
+  const res = await fetch(`/api/wheeler-pageviews-strategy/totals${toQueryString(query)}`);
+  if (!res.ok) throw new Error(await extractErrorMessage(res, "Failed to load pageviews totals"));
+  return res.json();
+}
+
 export async function fetchPageviewsStrategy(
   query: WheelerPageviewsStrategyQuery
 ): Promise<WheelerPageviewsStrategyListOut> {

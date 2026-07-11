@@ -11,14 +11,16 @@ import CampaignsReportTable from "@/components/CampaignsReportTable";
 import PageLoader from "@/components/PageLoader";
 import {
   fetchBudgetCampaignIds,
+  fetchPageviewsTotals,
   fetchReportBudget,
   fetchReportDelivery,
   fetchReportPageviewsStrategy,
   formatCurrency,
   formatNumber,
   PAGE_LIMIT,
+  sumPageviewsRows,
 } from "@/lib/api";
-import { buildCampaignReportRows, sortCampaignRows } from "@/lib/campaignMetrics";
+import { buildCampaignReportRows, filterCampaignRowsByBudget, sortCampaignRows } from "@/lib/campaignMetrics";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import {
   DEFAULT_BUDGET_SORT,
@@ -33,11 +35,16 @@ import { WheelerBudgetOut, WheelerCampaignsDataOut, WheelerPageviewsStrategyOut 
 
 const TABLE_PAGE_SIZE = 10;
 
+function joinCampaignIds(ids: string[]): string | undefined {
+  return ids.length > 0 ? ids.join(",") : undefined;
+}
+
 export default function Page() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const appliedFilters = useDebouncedValue(filters, 400);
 
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
+  const [advertiserNames, setAdvertiserNames] = useState<string[]>([]);
   const [allBudgetRows, setAllBudgetRows] = useState<WheelerBudgetOut[]>([]);
   const [budgetTotal, setBudgetTotal] = useState(0);
   const [campaignsOffset, setCampaignsOffset] = useState(0);
@@ -47,6 +54,12 @@ export default function Page() {
   const [pageviewsRows, setPageviewsRows] = useState<WheelerPageviewsStrategyOut[]>([]);
   const [pageviewsTotal, setPageviewsTotal] = useState(0);
   const [pageviewsTruncated, setPageviewsTruncated] = useState(false);
+  const [deliveryTotals, setDeliveryTotals] = useState<{
+    totalImpressions: number;
+    totalSpend: number;
+    totalRows: number;
+  } | null>(null);
+  const [deliveryTotalsLoading, setDeliveryTotalsLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -75,12 +88,53 @@ export default function Page() {
   }, [appliedFilters.campaignIdPrefix, appliedFilters.clientName]);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchReportBudget({
+      campaign_ids: appliedFilters.campaignId || undefined,
+      campaign_id_prefix: appliedFilters.campaignIdPrefix || undefined,
+      campaign: appliedFilters.campaignName || undefined,
+      start_from_date: appliedFilters.startFromDate || undefined,
+      end_to_date: appliedFilters.endToDate || undefined,
+      campaign_type: appliedFilters.campaignType || undefined,
+      order: toOrderParam(budgetSort),
+    })
+      .then(({ items }) => {
+        if (cancelled) return;
+        const names = [
+          ...new Set(items.map((r) => r.client_name).filter((n): n is string => Boolean(n))),
+        ].sort();
+        if (appliedFilters.clientName && !names.includes(appliedFilters.clientName)) {
+          names.push(appliedFilters.clientName);
+          names.sort();
+        }
+        setAdvertiserNames(names);
+      })
+      .catch(() => {
+        /* dropdown is a nice-to-have */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    appliedFilters.campaignId,
+    appliedFilters.campaignIdPrefix,
+    appliedFilters.campaignName,
+    appliedFilters.startFromDate,
+    appliedFilters.endToDate,
+    appliedFilters.campaignType,
+    appliedFilters.clientName,
+    budgetSort,
+  ]);
+
+  useEffect(() => {
     setCampaignsOffset(0);
   }, [appliedFilters]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setDeliveryTotals(null);
+    setDeliveryTotalsLoading(false);
     setError(null);
 
     const sharedCampaign = {
@@ -98,39 +152,114 @@ export default function Page() {
       order: toOrderParam(budgetSort),
     };
 
-    const deliveryQuery = {
+    const buildDeliveryQuery = (campaign_ids?: string) => ({
       ...sharedCampaign,
+      campaign_ids,
       dma: appliedFilters.dma || undefined,
       city: appliedFilters.city || undefined,
       app_name: appliedFilters.appName || undefined,
       strategy: appliedFilters.strategy || undefined,
       device_type: appliedFilters.deviceType || undefined,
       order: toOrderParam(deliverySort),
-    };
+    });
 
-    const pageviewsQuery = {
+    const buildPageviewsQuery = (campaign_ids?: string) => ({
       ...sharedCampaign,
+      campaign_ids,
       strategy: appliedFilters.strategy || undefined,
       order: toOrderParam(pageviewsSort),
+    });
+
+    const applyPageviewsTotals = (
+      pageviewsQuery: ReturnType<typeof buildPageviewsQuery>,
+      pageviews: Awaited<ReturnType<typeof fetchReportPageviewsStrategy>>
+    ) => {
+      if (pageviews.truncated) {
+        setDeliveryTotalsLoading(true);
+        fetchPageviewsTotals(pageviewsQuery)
+          .then((totals) => {
+            if (!cancelled) {
+              setDeliveryTotals(totals);
+              setDeliveryTotalsLoading(false);
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              const sums = sumPageviewsRows(pageviews.items);
+              setDeliveryTotals({
+                ...sums,
+                totalRows: pageviews.total,
+              });
+              setDeliveryTotalsLoading(false);
+            }
+          });
+      } else {
+        const sums = sumPageviewsRows(pageviews.items);
+        setDeliveryTotals({
+          ...sums,
+          totalRows: pageviews.total,
+        });
+      }
     };
 
-    Promise.all([
-      fetchReportBudget(budgetQuery),
-      fetchReportDelivery(deliveryQuery),
-      fetchReportPageviewsStrategy(pageviewsQuery),
-    ])
-      .then(([budget, delivery, pageviews]) => {
-        if (cancelled) return;
-        setAllBudgetRows(budget.items);
-        setBudgetTotal(budget.total);
-        setDeliveryRows(delivery.items);
-        setDeliveryTotal(delivery.total);
-        setDeliveryTruncated(delivery.truncated);
-        setPageviewsRows(pageviews.items);
-        setPageviewsTotal(pageviews.total);
-        setPageviewsTruncated(pageviews.truncated);
-        setHasLoadedOnce(true);
-      })
+    const applyResults = (
+      budget: Awaited<ReturnType<typeof fetchReportBudget>>,
+      delivery: Awaited<ReturnType<typeof fetchReportDelivery>>,
+      pageviews: Awaited<ReturnType<typeof fetchReportPageviewsStrategy>>,
+      pageviewsQuery: ReturnType<typeof buildPageviewsQuery>
+    ) => {
+      setAllBudgetRows(budget.items);
+      setBudgetTotal(budget.total);
+      setDeliveryRows(delivery.items);
+      setDeliveryTotal(delivery.total);
+      setDeliveryTruncated(delivery.truncated);
+      setPageviewsRows(pageviews.items);
+      setPageviewsTotal(pageviews.total);
+      setPageviewsTruncated(pageviews.truncated);
+      setHasLoadedOnce(true);
+      applyPageviewsTotals(pageviewsQuery, pageviews);
+    };
+
+    const emptyDelivery = { items: [] as WheelerCampaignsDataOut[], total: 0, truncated: false };
+    const emptyPageviews = { items: [] as WheelerPageviewsStrategyOut[], total: 0, truncated: false };
+
+    const loadWithAdvertiserScope = async () => {
+      const budget = await fetchReportBudget(budgetQuery);
+      if (cancelled) return;
+
+      if (budget.items.length === 0) {
+        applyResults(budget, emptyDelivery, emptyPageviews, buildPageviewsQuery(undefined));
+        return;
+      }
+
+      const campaign_ids = joinCampaignIds(budget.items.map((r) => r.campaign_id));
+      const deliveryQuery = buildDeliveryQuery(campaign_ids);
+      const pageviewsQuery = buildPageviewsQuery(campaign_ids);
+
+      const [delivery, pageviews] = await Promise.all([
+        fetchReportDelivery(deliveryQuery),
+        fetchReportPageviewsStrategy(pageviewsQuery),
+      ]);
+      if (cancelled) return;
+      applyResults(budget, delivery, pageviews, pageviewsQuery);
+    };
+
+    const loadParallel = async () => {
+      const deliveryQuery = buildDeliveryQuery(sharedCampaign.campaign_ids);
+      const pageviewsQuery = buildPageviewsQuery(sharedCampaign.campaign_ids);
+
+      const [budget, delivery, pageviews] = await Promise.all([
+        fetchReportBudget(budgetQuery),
+        fetchReportDelivery(deliveryQuery),
+        fetchReportPageviewsStrategy(pageviewsQuery),
+      ]);
+      if (cancelled) return;
+      applyResults(budget, delivery, pageviews, pageviewsQuery);
+    };
+
+    const load = appliedFilters.clientName ? loadWithAdvertiserScope : loadParallel;
+
+    load()
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load report data");
       })
@@ -148,15 +277,13 @@ export default function Page() {
     setCampaignsOffset(0);
   };
 
-  const allCampaignRows = useMemo(
-    () =>
-      sortCampaignRows(
-        buildCampaignReportRows(pageviewsRows, allBudgetRows, deliveryRows),
-        campaignsSort.column,
-        campaignsSort.direction
-      ),
-    [pageviewsRows, allBudgetRows, deliveryRows, campaignsSort]
-  );
+  const allCampaignRows = useMemo(() => {
+    let rows = buildCampaignReportRows(pageviewsRows, allBudgetRows, deliveryRows);
+    if (appliedFilters.clientName) {
+      rows = filterCampaignRowsByBudget(rows, allBudgetRows);
+    }
+    return sortCampaignRows(rows, campaignsSort.column, campaignsSort.direction);
+  }, [pageviewsRows, allBudgetRows, deliveryRows, campaignsSort, appliedFilters.clientName]);
 
   const campaignPageRows = useMemo(
     () => allCampaignRows.slice(campaignsOffset, campaignsOffset + TABLE_PAGE_SIZE),
@@ -169,24 +296,30 @@ export default function Page() {
       0
     );
     const distinctCampaigns = new Set(allBudgetRows.map((r) => r.campaign_id)).size;
-    const totalImpressions = deliveryRows.reduce((sum, r) => sum + (r.impressions ?? 0), 0);
-    const totalSpend = deliveryRows.reduce((sum, r) => sum + (r.cost_with_markup ?? 0), 0);
+    const totalImpressions = deliveryTotals?.totalImpressions ?? 0;
+    const totalSpend = deliveryTotals?.totalSpend ?? 0;
     const pacing = totalGrossBudget > 0 ? totalSpend / totalGrossBudget : 0;
 
     return { totalGrossBudget, distinctCampaigns, totalImpressions, totalSpend, pacing };
-  }, [allBudgetRows, deliveryRows]);
+  }, [allBudgetRows, deliveryTotals]);
 
   const showInitialLoader = loading && !hasLoadedOnce;
-  const deliverySampleLabel = deliveryTruncated
-    ? `from latest ${formatNumber(deliveryRows.length)} of ${formatNumber(deliveryTotal)} rows`
-    : `${formatNumber(deliveryTotal)} delivery rows`;
+  const deliveryRowsLabel = deliveryTotalsLoading
+    ? "Calculating totals…"
+    : `across ${formatNumber(deliveryTotals?.totalRows ?? pageviewsTotal)} pageviews strategy rows`;
 
   return (
     <main className="min-h-screen">
       <Header />
 
       <div className="mx-auto max-w-[1180px] px-6 py-6 flex flex-col gap-6">
-        <Filters value={filters} onChange={setFilters} campaignIds={campaignIds} loading={loading} />
+        <Filters
+          value={filters}
+          onChange={setFilters}
+          campaignIds={campaignIds}
+          advertiserNames={advertiserNames}
+          loading={loading}
+        />
 
         {error && (
           <div className="card border-signal/40 bg-signal/5 px-4 py-3 text-sm text-ink">
@@ -220,14 +353,24 @@ export default function Page() {
               />
               <KpiCard
                 label="Impressions delivered"
-                value={formatNumber(kpis.totalImpressions)}
-                sublabel={deliverySampleLabel}
+                value={deliveryTotalsLoading ? "…" : formatNumber(kpis.totalImpressions)}
+                sublabel={deliveryRowsLabel}
               />
               <KpiCard
                 label="Spend pacing"
-                value={kpis.totalGrossBudget > 0 ? `${Math.round(kpis.pacing * 100)}%` : "—"}
-                sublabel={`${formatCurrency(kpis.totalSpend)} of ${formatCurrency(kpis.totalGrossBudget)}`}
-                signal={Math.min(kpis.pacing, 1)}
+                value={
+                  deliveryTotalsLoading
+                    ? "…"
+                    : kpis.totalGrossBudget > 0
+                      ? `${Math.round(kpis.pacing * 100)}%`
+                      : "—"
+                }
+                sublabel={
+                  deliveryTotalsLoading
+                    ? "Calculating totals…"
+                    : `${formatCurrency(kpis.totalSpend)} of ${formatCurrency(kpis.totalGrossBudget)}`
+                }
+                signal={deliveryTotalsLoading ? undefined : Math.min(kpis.pacing, 1)}
               />
             </div>
 
@@ -260,7 +403,10 @@ export default function Page() {
 
             <p className="text-xs text-slate-line pb-6">
               Loads budget, delivery, and pageviews strategy data ({PAGE_LIMIT} rows each) in parallel.
-              Campaigns Report aggregates pageviews strategy by campaign id
+              KPI impressions and spend use totals across all matching pageviews strategy rows; charts sample
+              the latest {formatNumber(deliveryRows.length)} delivery rows
+              {deliveryTruncated ? ` of ${formatNumber(deliveryTotal)}` : ""}. Campaigns Report aggregates
+              pageviews strategy by campaign id
               {pageviewsTruncated
                 ? ` — using the latest ${formatNumber(pageviewsRows.length)} of ${formatNumber(pageviewsTotal)} rows`
                 : ""}

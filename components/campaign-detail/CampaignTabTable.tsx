@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
+  CampaignDetailTab,
   TabMetricRow,
   formatCurrencyDetailed,
   formatDecimal,
@@ -12,6 +13,7 @@ import { TableSort } from "@/lib/sort";
 import SortableTh from "../SortableTh";
 
 interface Props {
+  activeTab: CampaignDetailTab;
   summary: TabMetricRow | null;
   rows: TabMetricRow[];
   sort: TableSort;
@@ -19,7 +21,30 @@ interface Props {
   emptyMessage?: string;
 }
 
-export default function CampaignTabTable({ summary, rows, sort, onSort, emptyMessage }: Props) {
+const METRIC_COLUMNS = [
+  { label: "Spend", column: "spend", align: "right" as const },
+  { label: "Impressions", column: "impressions", align: "right" as const },
+  { label: "CPM", column: "cpm", align: "right" as const },
+  { label: "View-Through Rate", column: "view_through_rate", align: "right" as const },
+  { label: "Cost Per View", column: "cost_per_view", align: "right" as const },
+  { label: "Completed View", column: "complete_views", align: "right" as const },
+  { label: "Households", column: "household", align: "right" as const },
+  { label: "Session", column: "session", align: "right" as const },
+  { label: "Page View", column: "page_view", align: "right" as const },
+  { label: "Frequency", column: "frequency", align: "right" as const },
+];
+
+export default function CampaignTabTable({
+  activeTab,
+  summary,
+  rows,
+  sort,
+  onSort,
+  emptyMessage,
+}: Props) {
+  const isStrategies = activeTab === "strategies";
+  const colSpan = isStrategies ? 13 : 11;
+
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto">
@@ -27,65 +52,36 @@ export default function CampaignTabTable({ summary, rows, sort, onSort, emptyMes
           <thead>
             <tr className="border-y border-ink-600/10 text-left">
               <SortableTh label="Name" column="name" sort={sort} onSort={onSort} />
-              <SortableTh label="Start Date" column="start_date" sort={sort} onSort={onSort} />
-              <SortableTh label="End Date" column="end_date" sort={sort} onSort={onSort} />
-              <SortableTh label="Spend" column="spend" sort={sort} onSort={onSort} align="right" />
-              <SortableTh label="Pacing" column="pacing" sort={sort} onSort={onSort} align="right" />
-              <SortableTh
-                label="Impressions"
-                column="impressions"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
-              <SortableTh label="CPM" column="cpm" sort={sort} onSort={onSort} align="right" />
-              <SortableTh
-                label="View-Through Rate"
-                column="view_through_rate"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
-              <SortableTh
-                label="Cost Per View"
-                column="cost_per_view"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
-              <SortableTh
-                label="Completed View"
-                column="complete_views"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
-              <SortableTh
-                label="Households"
-                column="household"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
-              <SortableTh
-                label="Frequency"
-                column="frequency"
-                sort={sort}
-                onSort={onSort}
-                align="right"
-              />
+              {isStrategies && (
+                <SortableTh label="Start Date" column="start_date" sort={sort} onSort={onSort} />
+              )}
+              {isStrategies && (
+                <SortableTh label="End Date" column="end_date" sort={sort} onSort={onSort} />
+              )}
+              {METRIC_COLUMNS.map((col) => (
+                <SortableTh
+                  key={col.column}
+                  label={col.label}
+                  column={col.column}
+                  sort={sort}
+                  onSort={onSort}
+                  align={col.align}
+                />
+              ))}
             </tr>
           </thead>
           <tbody>
-            {summary && <MetricRow row={summary} highlight />}
+            {summary && <MetricRow row={summary} highlight isStrategies={isStrategies} />}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-5 py-8 text-center text-slate-line">
+                <td colSpan={colSpan} className="px-5 py-8 text-center text-slate-line">
                   {emptyMessage ?? "No data for this tab."}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => <MetricRow key={row.name} row={row} />)
+              rows.map((row) => (
+                <MetricRow key={row.name} row={row} isStrategies={isStrategies} />
+              ))
             )}
           </tbody>
         </table>
@@ -94,19 +90,28 @@ export default function CampaignTabTable({ summary, rows, sort, onSort, emptyMes
   );
 }
 
-function MetricRow({ row, highlight = false }: { row: TabMetricRow; highlight?: boolean }) {
+function MetricRow({
+  row,
+  highlight = false,
+  isStrategies,
+}: {
+  row: TabMetricRow;
+  highlight?: boolean;
+  isStrategies: boolean;
+}) {
   return (
     <tr
       className={`border-b border-ink-600/5 ${highlight ? "bg-teal/[0.08] font-medium" : "hover:bg-ink-600/[0.03]"}`}
     >
       <Td>{row.name}</Td>
-      <Td className="ticker whitespace-nowrap">{formatDate(row.start_date)}</Td>
-      <Td className="ticker whitespace-nowrap">{formatDate(row.end_date)}</Td>
+      {isStrategies && (
+        <Td className="ticker whitespace-nowrap">{formatDate(row.start_date)}</Td>
+      )}
+      {isStrategies && (
+        <Td className="ticker whitespace-nowrap">{formatDate(row.end_date)}</Td>
+      )}
       <Td align="right" className="ticker">
         {formatCurrencyDetailed(row.spend)}
-      </Td>
-      <Td align="right" className="ticker">
-        {formatPercent(row.pacing)}
       </Td>
       <Td align="right" className="ticker">
         {formatNumber(row.impressions)}
@@ -125,6 +130,12 @@ function MetricRow({ row, highlight = false }: { row: TabMetricRow; highlight?: 
       </Td>
       <Td align="right" className="ticker">
         {row.household === null ? "—" : formatNumber(row.household)}
+      </Td>
+      <Td align="right" className="ticker">
+        {row.session === null ? "—" : formatNumber(row.session)}
+      </Td>
+      <Td align="right" className="ticker">
+        {row.page_view === null ? "—" : formatNumber(row.page_view)}
       </Td>
       <Td align="right" className="ticker">
         {formatDecimal(row.frequency)}

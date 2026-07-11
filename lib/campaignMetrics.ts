@@ -38,7 +38,6 @@ export interface TabMetricRow {
   name: string;
   start_date: string | null;
   end_date: string | null;
-  pacing: number | null;
   spend: number;
   impressions: number;
   cpm: number | null;
@@ -46,7 +45,11 @@ export interface TabMetricRow {
   cost_per_view: number | null;
   complete_views: number;
   household: number | null;
+  session: number | null;
+  page_view: number | null;
   frequency: number | null;
+  budget_amount?: number | null;
+  pacing?: number | null;
 }
 
 export type CampaignDetailTab =
@@ -97,36 +100,24 @@ function toTabRow(
     name,
     start_date: null,
     end_date: null,
-    pacing: null,
     spend,
     impressions,
     complete_views: completeViews,
     household,
+    session: null,
+    page_view: null,
     ...deriveMetrics(spend, impressions, completeViews, household),
   };
-}
-
-export function parseCampaignBudgetAmount(budget: WheelerBudgetOut | undefined): number | null {
-  if (!budget?.gross_budget) return null;
-  const amount = parseNum(budget.gross_budget);
-  return amount > 0 ? amount : null;
-}
-
-export function computePacing(spend: number, budgetAmount: number | null): number | null {
-  if (budgetAmount === null || budgetAmount <= 0) return null;
-  return spend / budgetAmount;
 }
 
 export function enrichTabRow(
   row: TabMetricRow,
   budget: WheelerBudgetOut | undefined
 ): TabMetricRow {
-  const budgetAmount = parseCampaignBudgetAmount(budget);
   return {
     ...row,
     start_date: budget?.start_date ?? null,
     end_date: budget?.end_date ?? null,
-    pacing: computePacing(row.spend, budgetAmount),
   };
 }
 
@@ -167,8 +158,8 @@ function accumulatorToRow(campaign_id: string, data: CampaignReportAccumulator):
     start_date: data.start_date,
     end_date: data.end_date,
     budget: data.budget,
-    gross_spend: data.gross_spend,
-    impressions: data.impressions,
+    gross_spend: data.pageviews_spend,
+    impressions: data.pageviews_impressions,
     complete_views: data.complete_views,
     household: data.household,
     cost_per_view: derived.cost_per_view,
@@ -215,6 +206,15 @@ export function buildCampaignReportRows(
   }
 
   return Array.from(map.entries()).map(([campaign_id, data]) => accumulatorToRow(campaign_id, data));
+}
+
+export function filterCampaignRowsByBudget(
+  rows: CampaignReportRow[],
+  budgetRows: WheelerBudgetOut[]
+): CampaignReportRow[] {
+  if (budgetRows.length === 0) return [];
+  const allowed = new Set(budgetRows.map((r) => r.campaign_id));
+  return rows.filter((r) => allowed.has(r.campaign_id));
 }
 
 /** @deprecated Use buildCampaignReportRows for dashboard table rows. */
@@ -273,6 +273,10 @@ export function aggregatePageviewsByStrategy(
     existing.impressions += row.impressions ?? 0;
     existing.complete_views += row.complete_views ?? 0;
     existing.household = (existing.household ?? 0) + (row.household ?? 0);
+    if (existing.session === null) existing.session = 0;
+    if (existing.page_view === null) existing.page_view = 0;
+    existing.session += row.session ?? 0;
+    existing.page_view += row.page_view ?? 0;
     Object.assign(
       existing,
       deriveMetrics(
@@ -333,6 +337,50 @@ export function aggregateDeliveryByGeography(rows: WheelerCampaignsDataOut[]): T
   );
 }
 
+export function buildPageviewsSummaryRow(
+  pageviewsRows: WheelerPageviewsStrategyOut[],
+  budget: WheelerBudgetOut | undefined,
+  name = "All strategies"
+): TabMetricRow | null {
+  if (pageviewsRows.length === 0) return null;
+
+  const totals = pageviewsRows.reduce(
+    (acc, row) => {
+      acc.spend += parseNum(row.cost_with_markup);
+      acc.impressions += row.impressions ?? 0;
+      acc.complete_views += row.complete_views ?? 0;
+      acc.household += row.household ?? 0;
+      acc.session += row.session ?? 0;
+      acc.page_view += row.page_view ?? 0;
+      return acc;
+    },
+    { spend: 0, impressions: 0, complete_views: 0, household: 0, session: 0, page_view: 0 }
+  );
+
+  const budgetAmount = budget?.gross_budget ? parseNum(budget.gross_budget) : null;
+  const pacing =
+    budgetAmount !== null && budgetAmount > 0 ? (totals.spend / budgetAmount) * 100 : null;
+
+  const base = enrichTabRow(
+    toTabRow(
+      name,
+      totals.spend,
+      totals.impressions,
+      totals.complete_views,
+      totals.household > 0 ? totals.household : null
+    ),
+    budget
+  );
+
+  return {
+    ...base,
+    session: totals.session > 0 ? totals.session : null,
+    page_view: totals.page_view > 0 ? totals.page_view : null,
+    budget_amount: budgetAmount,
+    pacing,
+  };
+}
+
 export function summarizeTabRows(rows: TabMetricRow[]): TabMetricRow {
   const totals = rows.reduce(
     (acc, row) => {
@@ -340,19 +388,28 @@ export function summarizeTabRows(rows: TabMetricRow[]): TabMetricRow {
       acc.impressions += row.impressions;
       acc.complete_views += row.complete_views;
       if (row.household !== null) acc.household += row.household;
+      if (row.session !== null) acc.session += row.session;
+      if (row.page_view !== null) acc.page_view += row.page_view;
       return acc;
     },
-    { spend: 0, impressions: 0, complete_views: 0, household: 0 }
+    { spend: 0, impressions: 0, complete_views: 0, household: 0, session: 0, page_view: 0 }
   );
 
   const hasHousehold = rows.some((r) => r.household !== null);
-  return toTabRow(
+  const hasSession = rows.some((r) => r.session !== null);
+  const hasPageView = rows.some((r) => r.page_view !== null);
+  const result = toTabRow(
     "All strategies",
     totals.spend,
     totals.impressions,
     totals.complete_views,
     hasHousehold ? totals.household : null
   );
+  return {
+    ...result,
+    session: hasSession ? totals.session : null,
+    page_view: hasPageView ? totals.page_view : null,
+  };
 }
 
 export function findBudgetForCampaign(
